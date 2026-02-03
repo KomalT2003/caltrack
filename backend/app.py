@@ -1,11 +1,14 @@
 import os
 import json
 import re
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
+from datetime import datetime
+import database as db
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
-CORS(app)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+CORS(app, supports_credentials=True)
 
 # Use Google Gemini API for fast, accurate inference
 # Get your free API key from: https://aistudio.google.com/app/apikey
@@ -177,6 +180,150 @@ def extract_json(text):
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
+
+# Auth endpoints
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    try:
+        data = request.get_json()
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        
+        if not username or not password:
+            return jsonify({"error": "Username and password required"}), 400
+        
+        if len(username) < 3:
+            return jsonify({"error": "Username must be at least 3 characters"}), 400
+        
+        if len(password) < 4:
+            return jsonify({"error": "Password must be at least 4 characters"}), 400
+        
+        user_id = db.create_user(username, password)
+        if not user_id:
+            return jsonify({"error": "Username already exists"}), 409
+        
+        session["user_id"] = user_id
+        session["username"] = username
+        return jsonify({"success": True, "username": username})
+    except Exception as e:
+        print(f"❌ Registration error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json()
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        
+        if not username or not password:
+            return jsonify({"error": "Username and password required"}), 400
+        
+        user_id = db.authenticate_user(username, password)
+        if not user_id:
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+        session["user_id"] = user_id
+        session["username"] = username
+        return jsonify({"success": True, "username": username})
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/auth/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
+
+@app.route("/api/auth/check", methods=["GET"])
+def check_auth():
+    if "user_id" in session:
+        return jsonify({
+            "authenticated": True,
+            "username": session.get("username")
+        })
+    return jsonify({"authenticated": False})
+
+# Meal endpoints
+@app.route("/api/meals", methods=["GET"])
+def get_meals():
+    if "user_id" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+        meals = db.get_meals_by_date(session["user_id"], date)
+        return jsonify({"meals": meals})
+    except Exception as e:
+        print(f"❌ Error fetching meals: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/meals", methods=["POST"])
+def add_meal():
+    if "user_id" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        data = request.get_json()
+        date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+        food_description = data.get("food_description", "").strip()
+        calories = int(data.get("calories", 0))
+        notes = data.get("notes", "")
+        
+        if not food_description or calories <= 0:
+            return jsonify({"error": "Invalid meal data"}), 400
+        
+        meal_id = db.add_meal(
+            session["user_id"],
+            date,
+            food_description,
+            calories,
+            notes
+        )
+        
+        return jsonify({"success": True, "meal_id": meal_id})
+    except Exception as e:
+        print(f"❌ Error adding meal: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/meals/<int:meal_id>", methods=["DELETE"])
+def delete_meal(meal_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        db.delete_meal(session["user_id"], meal_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"❌ Error deleting meal: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/meals/clear", methods=["DELETE"])
+def clear_meals():
+    if "user_id" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+        db.delete_meals_by_date(session["user_id"], date)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"❌ Error clearing meals: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/meals/month", methods=["GET"])
+def get_monthly_meals():
+    if "user_id" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        year = int(request.args.get("year", datetime.now().year))
+        month = int(request.args.get("month", datetime.now().month))
+        meals = db.get_meals_by_month(session["user_id"], year, month)
+        return jsonify({"meals": meals})
+    except Exception as e:
+        print(f"❌ Error fetching monthly meals: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/estimate", methods=["POST"])
 def estimate_calories():
