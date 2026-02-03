@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CalTrack</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex justify-center" id="appBody">
+
+  <!-- Background art layer (set by JS) -->
+  <div id="bgArt" class="pointer-events-none fixed inset-0"></div>
+
+  <div class="w-full max-w-[430px] min-h-screen px-6 pt-8 pb-32 relative z-10" id="phoneShell">
+    <!-- Header row: calories (left), time + location (right) -->
+    <div class="flex items-center justify-between mb-12">
+      <div class="text-left">
+        <div class="text-white/80 text-xs uppercase tracking-widest font-light mb-2">Calories</div>
+        <div class="text-white font-bold text-6xl" style="line-height: 1.1;"><span id="totalKcalSmall">0</span></div>
+      </div>
+      <div class="text-right leading-tight">
+        <div class="text-white font-bold text-6xl tracking-tight mb-1" style="line-height: 1.1;" id="timeText">--:--</div>
+        <div class="text-white/90 text-xl font-light flex items-center justify-end gap-2">
+          <span id="todayLabel">Today</span>
+          <span class="text-white/60">•</span>
+          <span id="locationText">📍 Delhi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today list -->
+    <div>
+      <div id="mealsHeader" class="flex items-center justify-between mb-4">
+        <div class="text-white font-light text-xl">Today's Meals</div>
+        <button id="clearTodayBtn" class="text-white/70 text-sm hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-white/10 font-light">Clear All</button>
+      </div>
+      <div id="todayList" class="space-y-2"></div>
+      <div id="emptyState" class="fixed inset-0 flex flex-col items-center justify-center text-center text-white/60 text-sm hidden z-0">
+        <div class="text-5xl mb-3">🍽️</div>
+        <div class="text-base font-light">No meals logged yet</div>
+        <div class="text-xs mt-2 text-white/50 font-light">Tap "Add Meal" to get started</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Action Buttons -->
+  <div class="fixed bottom-8 left-1/2 -translate-x-1/2 flex gap-4 z-20">
+    <button id="openCalendarBtn" class="glass-button text-white shadow-2xl p-4 rounded-full font-light text-2xl w-14 h-14 flex items-center justify-center">
+      📅
+    </button>
+    <button id="openAddBtn" class="glass-button text-white shadow-2xl px-8 py-4 rounded-full font-light text-lg">
+      + Add Meal
+    </button>
+  </div>
+
+  <!-- Add Modal -->
+  <div id="addModal" class="hidden fixed inset-0 bg-black/60 z-30">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="w-full max-w-[430px] bg-white rounded-3xl p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-5">
+          <div class="font-light text-2xl text-gray-900">Add Meal</div>
+          <button id="closeAddBtn" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">×</button>
+        </div>
+
+        <div class="mt-4">
+          <label class="text-sm font-light text-gray-600">What did you eat?</label>
+          <div class="mt-2 flex gap-2">
+            <input id="foodInput" class="flex-1 border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-transparent font-light" placeholder="e.g., 4 spoons of dal chawal" />
+            <button id="micBtn" class="border border-gray-300 rounded-2xl px-4 py-3 hover:bg-gray-50 transition-colors" title="Speak">🎤</button>
+          </div>
+          <div class="mt-2 text-xs text-gray-500 font-light" id="speechHint">💡 You can type or use voice input</div>
+        </div>
+
+        <div class="mt-6 p-4 bg-gray-50 rounded-2xl">
+          <div class="flex items-center justify-between gap-3">
+            <button id="estimateBtn" class="flex-1 bg-gray-900 text-white rounded-xl px-5 py-3 font-light disabled:opacity-50 hover:bg-gray-800 transition-all">
+              ✨ Estimate Calories
+            </button>
+            <div class="text-right">
+              <div class="text-xs text-gray-500 font-light">Estimated</div>
+              <div class="text-3xl font-light text-gray-900"><span id="estimatedKcal">—</span></div>
+              <div class="text-xs text-gray-500 font-light">kcal</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 rounded-xl bg-gray-100 text-sm text-gray-700 font-light hidden" id="llmNote"></div>
+        <div class="mt-3 p-3 rounded-xl bg-red-50 text-sm text-red-700 font-light hidden" id="llmError"></div>
+
+        <div class="mt-6 flex gap-3">
+          <button id="cancelBtn" class="flex-1 border border-gray-300 rounded-xl px-4 py-3 font-light text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+          <button id="addBtn" class="flex-1 bg-gray-900 text-white rounded-xl px-4 py-3 font-light disabled:opacity-50 disabled:bg-gray-400 hover:bg-gray-800 transition-all" disabled>Add to Today</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Modal -->
+  <div id="calendarModal" class="hidden fixed inset-0 bg-black/60 z-30">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="w-full max-w-[430px] bg-white rounded-3xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-5">
+          <div class="font-light text-2xl text-gray-900" id="calendarMonthYear">January 2026</div>
+          <button id="closeCalendarBtn" class="text-gray-400 hover:text-gray-900 text-2xl leading-none">×</button>
+        </div>
+
+        <div class="mb-4 text-sm text-gray-500 font-light">Monthly calorie summary</div>
+
+        <!-- Calendar Grid -->
+        <div class="grid grid-cols-7 gap-2" id="calendarGrid">
+          <!-- Day headers -->
+          <div class="text-center text-xs font-light text-gray-500 py-2">Sun</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Mon</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Tue</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Wed</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Thu</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Fri</div>
+          <div class="text-center text-xs font-light text-gray-500 py-2">Sat</div>
+          <!-- Days will be inserted by JS -->
+        </div>
+
+        <div class="mt-6 p-4 bg-gray-50 rounded-2xl">
+          <div class="flex justify-between items-center">
+            <div class="text-sm font-light text-gray-600">Total this month</div>
+            <div class="text-2xl font-bold text-gray-900"><span id="monthTotal">0</span> kcal</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #appBody {
+      background: #000;
+      position: relative;
+      overflow: hidden;
+    }
+    #bgArt {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+    }
+    #bgArt::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%);
+      z-index: 1;
+    }
+    #phoneShell {
+      position: relative;
+      z-index: 10;
+      animation: fadeIn 0.8s ease-out;
+    }
+    .cardRow {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(30px) saturate(180%);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: slideUp 0.5s ease-out;
+    }
+    .cardRow:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .glass-button {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.3);
+      transition: all 0.3s ease;
+    }
+    .glass-button:hover {
+      background: rgba(255,255,255,0.25);
+      transform: scale(1.05);
+    }
+    .glass-button:active {
+      transform: scale(0.98);
+    }
+  </style>
+
+  <script>
+    const STORAGE_KEY = "caltrack.v2";
+
+    const el = {
+      body: document.getElementById("appBody"),
+      bgArt: document.getElementById("bgArt"),
+      todayLabel: document.getElementById("todayLabel"),
+      timeText: document.getElementById("timeText"),
+      totalKcalSmall: document.getElementById("totalKcalSmall"),
+      todayList: document.getElementById("todayList"),
+      emptyState: document.getElementById("emptyState"),
+      mealsHeader: document.getElementById("mealsHeader"),
+      clearTodayBtn: document.getElementById("clearTodayBtn"),
+
+      openAddBtn: document.getElementById("openAddBtn"),
+      addModal: document.getElementById("addModal"),
+      closeAddBtn: document.getElementById("closeAddBtn"),
+      cancelBtn: document.getElementById("cancelBtn"),
+      foodInput: document.getElementById("foodInput"),
+      micBtn: document.getElementById("micBtn"),
+      speechHint: document.getElementById("speechHint"),
+      estimateBtn: document.getElementById("estimateBtn"),
+      estimatedKcal: document.getElementById("estimatedKcal"),
+      llmNote: document.getElementById("llmNote"),
+      llmError: document.getElementById("llmError"),
+      addBtn: document.getElementById("addBtn"),
+
+      openCalendarBtn: document.getElementById("openCalendarBtn"),
+      calendarModal: document.getElementById("calendarModal"),
+      closeCalendarBtn: document.getElementById("closeCalendarBtn"),
+      calendarMonthYear: document.getElementById("calendarMonthYear"),
+      calendarGrid: document.getElementById("calendarGrid"),
+      monthTotal: document.getElementById("monthTotal"),
+    };
+
+    function pad2(n) { return String(n).padStart(2, "0"); }
+
+    function todayKeyLocal() {
+      const d = new Date();
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    }
+
+    function formatTodayLabel() {
+      const d = new Date();
+      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    }
+
+    function loadAll() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAll(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function getTodayState() {
+      const all = loadAll();
+      const key = todayKeyLocal();
+      if (!all[key]) all[key] = { items: [] };
+      return { all, key, day: all[key] };
+    }
+
+    function getTimeOfDay() {
+      const h = new Date().getHours();
+      if (h >= 5 && h < 11) return "morning";
+      if (h >= 11 && h < 17) return "day";
+      if (h >= 17 && h < 20) return "evening";
+      return "night";
+    }
+
+    function setTimeOfDayBackground() {
+      const tod = getTimeOfDay();
+      const bgStyle = buildBackgroundSvg(tod);
+      el.bgArt.style.cssText = bgStyle;
+    }
+
+    function buildBackgroundSvg(tod) {
+      // Real Delhi/India Gate photos for different times of day
+      const backgrounds = {
+        morning: `background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&q=80') center/cover no-repeat;`,
+        day: `background: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)), url('https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&q=80') center/cover no-repeat;`,
+        evening: `background: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url('https://images.unsplash.com/photo-1562979314-bee7453e911c?w=1200&q=80') center/cover no-repeat;`,
+        night: `background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url('https://images.unsplash.com/photo-1562979314-bee7453e911c?w=1200&q=80') center/cover no-repeat;`,
+      };
+
+      return backgrounds[tod] || backgrounds.day;
+    }
+
+    function computeTotal(items) {
+      return items.reduce((sum, it) => sum + (Number(it.calories) || 0), 0);
+    }
+
+    function render() {
+      el.todayLabel.textContent = formatTodayLabel();
+      const { day } = getTodayState();
+      const items = day.items || [];
+      const total = computeTotal(items);
+
+      el.totalKcalSmall.textContent = String(total);
+      el.todayList.innerHTML = "";
+
+      if (items.length === 0) {
+        el.emptyState.classList.remove("hidden");
+        el.mealsHeader.classList.add("hidden");
+      } else {
+        el.emptyState.classList.add("hidden");
+        el.mealsHeader.classList.remove("hidden");
+      }
+
+      for (const item of items.slice().reverse()) {
+        const row = document.createElement("div");
+        row.className = "cardRow rounded-2xl px-5 py-4 flex items-center justify-between cursor-pointer";
+        const timeStr = new Date(item.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        row.innerHTML = `
+          <div class="min-w-0 flex-1 pr-4">
+            <div class="text-white font-light text-lg truncate" style="line-height: 1.4;">${escapeHtml(item.text || "Food")}</div>
+            <div class="text-white/70 text-xs mt-1 font-light">${timeStr}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-white font-thin text-3xl whitespace-nowrap" style="line-height: 1.2;">${Number(item.calories) || 0}</div>
+            <div class="text-white/70 text-xs font-light">kcal</div>
+          </div>
+        `;
+        el.todayList.appendChild(row);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function openModal() {
+      el.addModal.classList.remove("hidden");
+      el.foodInput.focus();
+    }
+
+    function closeModal() {
+      el.addModal.classList.add("hidden");
+      el.foodInput.value = "";
+      el.estimatedKcal.textContent = "—";
+      el.addBtn.disabled = true;
+      el.llmError.classList.add("hidden");
+      el.llmError.textContent = "";
+      el.llmNote.classList.add("hidden");
+      el.llmNote.textContent = "";
+    }
+
+    async function estimateWithLLM(text) {
+      const apiBase = location.protocol === "file:" ? "http://127.0.0.1:8787" : "";
+      try {
+        const res = await fetch(`${apiBase}/api/estimate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data?.error || data?.details || "Failed to estimate calories. Make sure the backend server is running.";
+          throw new Error(msg);
+        }
+        return data;
+      } catch (err) {
+        if (err.message.includes('fetch')) {
+          throw new Error("Cannot connect to server. Please start the backend: cd backend && python app.py");
+        }
+        throw err;
+      }
+    }
+
+    function updateTime() {
+      const now = new Date();
+      const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+      const parts = time.split(' ');
+      if (parts.length === 2) {
+        el.timeText.innerHTML = `${parts[0]}<span style="font-size: 0.35em; opacity: 0.7; margin-left: 0.2em; vertical-align: super;">${parts[1]}</span>`;
+      } else {
+        el.timeText.textContent = time;
+      }
+    }
+
+    // Speech Recognition (browser API)
+    function getSpeechRecognition() {
+      return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    }
+
+    function startSpeechOnce() {
+      const SR = getSpeechRecognition();
+      if (!SR) {
+        el.speechHint.textContent = "Speech not supported in this browser.";
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = "en-US";
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+
+      el.micBtn.disabled = true;
+      el.speechHint.textContent = "Listening…";
+
+      rec.onresult = (event) => {
+        const spoken = event.results?.[0]?.[0]?.transcript || "";
+        if (spoken.trim()) el.foodInput.value = spoken.trim();
+      };
+      rec.onerror = () => {
+        el.speechHint.textContent = "Couldn’t capture speech. Try again.";
+      };
+      rec.onend = () => {
+        el.micBtn.disabled = false;
+        el.speechHint.textContent = "Tip: you can type or speak.";
+      };
+      rec.start();
+    }
+
+    function openCalendarModal() {
+      el.calendarModal.classList.remove("hidden");
+      renderCalendar();
+    }
+
+    function closeCalendarModal() {
+      el.calendarModal.classList.add("hidden");
+    }
+
+    function renderCalendar() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      
+      // Set month/year header
+      el.calendarMonthYear.textContent = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      
+      // Get first day of month and total days
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      // Load all data
+      const all = loadAll();
+      const today = todayKeyLocal();
+      
+      // Find existing day headers
+      const headers = el.calendarGrid.querySelectorAll('.text-gray-500');
+      
+      // Remove old day cells (keep headers)
+      const oldCells = el.calendarGrid.querySelectorAll('.day-cell');
+      oldCells.forEach(cell => cell.remove());
+      
+      // Add empty cells for days before month starts
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day-cell';
+        el.calendarGrid.appendChild(empty);
+      }
+      
+      // Add day cells
+      let monthTotalCals = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateKey = `${year}-${pad2(month + 1)}-${pad2(day)}`;
+        const dayData = all[dateKey];
+        const calories = dayData ? computeTotal(dayData.items || []) : 0;
+        monthTotalCals += calories;
+        
+        const isToday = dateKey === today;
+        
+        const cell = document.createElement('div');
+        cell.className = `day-cell p-2 rounded-xl text-center ${isToday ? 'bg-gray-900 text-white' : calories > 0 ? 'bg-gray-100' : ''}`;
+        cell.innerHTML = `
+          <div class="text-sm font-light ${isToday ? 'font-bold' : ''}">${day}</div>
+          ${calories > 0 ? `<div class="text-xs mt-1 ${isToday ? 'text-white/80' : 'text-gray-600'}">${calories}</div>` : ''}
+        `;
+        el.calendarGrid.appendChild(cell);
+      }
+      
+      el.monthTotal.textContent = monthTotalCals;
+    }
+
+    // Wire UI
+    el.openAddBtn.addEventListener("click", openModal);
+    el.closeAddBtn.addEventListener("click", closeModal);
+    el.cancelBtn.addEventListener("click", closeModal);
+    el.addModal.addEventListener("click", (e) => {
+      if (e.target === el.addModal) closeModal();
+    });
+
+    el.openCalendarBtn.addEventListener("click", openCalendarModal);
+    el.closeCalendarBtn.addEventListener("click", closeCalendarModal);
+    el.calendarModal.addEventListener("click", (e) => {
+      if (e.target === el.calendarModal) closeCalendarModal();
+    });
+
+    el.micBtn.addEventListener("click", startSpeechOnce);
+
+    el.estimateBtn.addEventListener("click", async () => {
+      const text = el.foodInput.value.trim();
+      el.llmError.classList.add("hidden");
+      el.llmError.textContent = "";
+      el.llmNote.classList.add("hidden");
+      el.llmNote.textContent = "";
+
+      if (!text) {
+        el.llmError.textContent = "Type or speak something first.";
+        el.llmError.classList.remove("hidden");
+        return;
+      }
+
+      el.estimateBtn.disabled = true;
+      el.estimateBtn.textContent = "Estimating…";
+      try {
+        const out = await estimateWithLLM(text);
+        const kcal = Number(out?.calories);
+        if (!Number.isFinite(kcal)) throw new Error("LLM returned an invalid calorie value.");
+
+        el.estimatedKcal.textContent = String(Math.max(0, Math.round(kcal)));
+        el.addBtn.disabled = false;
+        if (out?.notes) {
+          el.llmNote.textContent = String(out.notes);
+          el.llmNote.classList.remove("hidden");
+        }
+      } catch (err) {
+        el.llmError.textContent = err?.message || "Failed to estimate.";
+        el.llmError.classList.remove("hidden");
+        el.addBtn.disabled = true;
+      } finally {
+        el.estimateBtn.disabled = false;
+        el.estimateBtn.textContent = "Estimate calories";
+      }
+    });
+
+    el.addBtn.addEventListener("click", () => {
+      const text = el.foodInput.value.trim();
+      const calories = Number(el.estimatedKcal.textContent);
+      if (!text || !Number.isFinite(calories)) return;
+
+      const { all, key, day } = getTodayState();
+      day.items = day.items || [];
+      day.items.push({ text, calories: Math.max(0, Math.round(calories)), ts: Date.now() });
+      all[key] = day;
+      saveAll(all);
+      closeModal();
+      render();
+    });
+
+    el.clearTodayBtn.addEventListener("click", () => {
+      const { all, key } = getTodayState();
+      all[key] = { items: [] };
+      saveAll(all);
+      render();
+    });
+
+    // Init
+    setTimeOfDayBackground();
+    render();
+    updateTime();
+    setInterval(() => {
+      setTimeOfDayBackground();
+      updateTime();
+    }, 60_000);
+  </script>
+
+</body>
+</html>

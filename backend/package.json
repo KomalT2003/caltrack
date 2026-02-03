@@ -1,0 +1,13 @@
+{
+  "name": "caltrack-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
