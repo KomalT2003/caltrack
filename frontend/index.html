@@ -263,10 +263,13 @@
   <script>
     const API_BASE = window.location.origin;
     let currentUser = null;
+    let userCity = "Loading...";
+    let userCityFull = "";
 
     const el = {
       body: document.getElementById("appBody"),
       bgArt: document.getElementById("bgArt"),
+      locationText: document.getElementById("locationText"),
       
       // Login elements
       loginScreen: document.getElementById("loginScreen"),
@@ -492,6 +495,49 @@
       return "night";
     }
 
+    // Get user's location and city name
+    async function getUserLocation() {
+      try {
+        // Request geolocation permission
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+
+        const { latitude, longitude } = position.coords;
+        
+        // Reverse geocoding using Nominatim (OpenStreetMap - free, no API key needed)
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          {
+            headers: {
+              'User-Agent': 'CalTrack-App'
+            }
+          }
+        );
+        
+        const data = await response.json();
+        const address = data.address || {};
+        
+        // Get city name (try multiple fields)
+        userCity = address.city || address.town || address.village || address.county || "Your City";
+        userCityFull = `${userCity}, ${address.state || address.country || ''}`.trim().replace(/, $/, '');
+        
+        console.log(`📍 Location detected: ${userCityFull}`);
+        
+        // Update UI
+        el.locationText.textContent = `📍 ${userCity}`;
+        
+        // Update background with new city
+        setTimeOfDayBackground();
+        
+      } catch (error) {
+        console.log('Location access denied or unavailable:', error);
+        userCity = "India";
+        userCityFull = "India";
+        el.locationText.textContent = `📍 ${userCity}`;
+      }
+    }
+
     function setTimeOfDayBackground() {
       const tod = getTimeOfDay();
       const bgStyle = buildBackgroundSvg(tod);
@@ -499,15 +545,23 @@
     }
 
     function buildBackgroundSvg(tod) {
-      // Real Delhi/India Gate photos for different times of day
-      const backgrounds = {
-        morning: `background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&q=80') center/cover no-repeat;`,
-        day: `background: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)), url('https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&q=80') center/cover no-repeat;`,
-        evening: `background: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url('https://images.unsplash.com/photo-1562979314-bee7453e911c?w=1200&q=80') center/cover no-repeat;`,
-        night: `background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url('https://images.unsplash.com/photo-1562979314-bee7453e911c?w=1200&q=80') center/cover no-repeat;`,
+      // Use city name for background search
+      const cityForSearch = userCity !== "Loading..." ? userCity : "India";
+      
+      // Time-of-day overlays
+      const overlays = {
+        morning: 'rgba(0,0,0,0.3), rgba(0,0,0,0.5)',
+        day: 'rgba(0,0,0,0.25), rgba(0,0,0,0.45)',
+        evening: 'rgba(0,0,0,0.35), rgba(0,0,0,0.55)',
+        night: 'rgba(0,0,0,0.45), rgba(0,0,0,0.65)'
       };
-
-      return backgrounds[tod] || backgrounds.day;
+      
+      const overlay = overlays[tod] || overlays.day;
+      
+      // Use Unsplash Source API for dynamic city images
+      const bgUrl = `https://source.unsplash.com/1200x1600/?${encodeURIComponent(cityForSearch)},city,landmark`;
+      
+      return `background: linear-gradient(${overlay}), url('${bgUrl}') center/cover no-repeat;`;
     }
 
     function computeTotal(items) {
@@ -799,6 +853,7 @@
     });
 
     // Init
+    getUserLocation(); // Get user's actual location
     setTimeOfDayBackground();
     checkAuth();
     updateTime();
