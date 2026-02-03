@@ -11,9 +11,53 @@
   <!-- Background art layer (set by JS) -->
   <div id="bgArt" class="pointer-events-none fixed inset-0"></div>
 
-  <div class="w-full max-w-[430px] min-h-screen px-6 pt-8 pb-32 relative z-10" id="phoneShell">
+  <!-- Login Screen -->
+  <div id="loginScreen" class="hidden w-full max-w-[430px] min-h-screen px-6 flex items-center justify-center relative z-10">
+    <div class="w-full bg-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20">
+      <div class="text-center mb-8">
+        <div class="text-6xl mb-4">🍽️</div>
+        <div class="text-white font-bold text-4xl mb-2">CalTrack</div>
+        <div class="text-white/70 font-light text-sm">Track your calories with AI</div>
+      </div>
+
+      <div id="loginForm" class="space-y-4">
+        <div>
+          <input id="loginUsername" type="text" placeholder="Username" class="w-full bg-white/20 text-white placeholder-white/60 border border-white/30 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 font-light" />
+        </div>
+        <div>
+          <input id="loginPassword" type="password" placeholder="Password" class="w-full bg-white/20 text-white placeholder-white/60 border border-white/30 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 font-light" />
+        </div>
+        <div id="loginError" class="hidden text-red-300 text-sm font-light text-center p-2 bg-red-900/30 rounded-xl"></div>
+        <button id="loginBtn" class="w-full bg-white text-gray-900 rounded-2xl px-4 py-3 font-light hover:bg-white/90 transition-all">
+          Login
+        </button>
+        <button id="showRegisterBtn" class="w-full bg-white/10 text-white border border-white/30 rounded-2xl px-4 py-3 font-light hover:bg-white/20 transition-all">
+          Create Account
+        </button>
+      </div>
+
+      <div id="registerForm" class="hidden space-y-4">
+        <div>
+          <input id="registerUsername" type="text" placeholder="Choose username (min 3 characters)" class="w-full bg-white/20 text-white placeholder-white/60 border border-white/30 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 font-light" />
+        </div>
+        <div>
+          <input id="registerPassword" type="password" placeholder="Choose password (min 4 characters)" class="w-full bg-white/20 text-white placeholder-white/60 border border-white/30 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 font-light" />
+        </div>
+        <div id="registerError" class="hidden text-red-300 text-sm font-light text-center p-2 bg-red-900/30 rounded-xl"></div>
+        <button id="registerBtn" class="w-full bg-white text-gray-900 rounded-2xl px-4 py-3 font-light hover:bg-white/90 transition-all">
+          Create Account
+        </button>
+        <button id="showLoginBtn" class="w-full bg-white/10 text-white border border-white/30 rounded-2xl px-4 py-3 font-light hover:bg-white/20 transition-all">
+          Back to Login
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div class="hidden w-full max-w-[430px] min-h-screen px-6 pt-8 pb-32 relative z-10" id="phoneShell">
     <!-- Header row: calories (left), time + location (right) -->
-    <div class="flex items-center justify-between mb-12">
+    <div class="flex items-center justify-between mb-8">
       <div class="text-left">
         <div class="text-white/80 text-xs uppercase tracking-widest font-light mb-2">Calories</div>
         <div class="text-white font-bold text-6xl" style="line-height: 1.1;"><span id="totalKcalSmall">0</span></div>
@@ -28,13 +72,19 @@
       </div>
     </div>
 
+    <!-- User info bar -->
+    <div class="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+      <div class="text-white/70 font-light text-sm">👤 <span id="currentUser">User</span></div>
+      <button id="logoutBtn" class="text-white/70 hover:text-white text-xs font-light px-3 py-1 rounded-lg hover:bg-white/10 transition-colors">Logout</button>
+    </div>
+
     <!-- Today list -->
-    <div>
-      <div id="mealsHeader" class="flex items-center justify-between mb-4">
+    <div class="relative" style="max-height: calc(100vh - 420px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;">
+      <div id="mealsHeader" class="flex items-center justify-between mb-4 sticky top-0 bg-gradient-to-b from-black/80 to-transparent pt-2 pb-4 z-10 backdrop-blur-sm">
         <div class="text-white font-light text-xl">Today's Meals</div>
         <button id="clearTodayBtn" class="text-white/70 text-sm hover:text-white transition-colors px-3 py-1 rounded-lg hover:bg-white/10 font-light">Clear All</button>
       </div>
-      <div id="todayList" class="space-y-2"></div>
+      <div id="todayList" class="space-y-2 pb-4"></div>
       <div id="emptyState" class="fixed inset-0 flex flex-col items-center justify-center text-center text-white/60 text-sm hidden z-0">
         <div class="text-5xl mb-3">🍽️</div>
         <div class="text-base font-light">No meals logged yet</div>
@@ -48,7 +98,7 @@
     <button id="openCalendarBtn" class="glass-button text-white shadow-2xl p-4 rounded-full font-light text-2xl w-14 h-14 flex items-center justify-center">
       📅
     </button>
-    <button id="openAddBtn" class="glass-button text-white shadow-2xl px-8 py-4 rounded-full font-light text-lg">
+    <button id="openAddBtn" class="glass-button text-white shadow-2xl px-6 py-4 rounded-full font-light text-base whitespace-nowrap">
       + Add Meal
     </button>
   </div>
@@ -193,14 +243,50 @@
     .glass-button:active {
       transform: scale(0.98);
     }
+    /* Custom scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.3);
+    }
   </style>
 
   <script>
-    const STORAGE_KEY = "caltrack.v2";
+    const API_BASE = window.location.origin;
+    let currentUser = null;
 
     const el = {
       body: document.getElementById("appBody"),
       bgArt: document.getElementById("bgArt"),
+      
+      // Login elements
+      loginScreen: document.getElementById("loginScreen"),
+      loginForm: document.getElementById("loginForm"),
+      registerForm: document.getElementById("registerForm"),
+      loginUsername: document.getElementById("loginUsername"),
+      loginPassword: document.getElementById("loginPassword"),
+      loginBtn: document.getElementById("loginBtn"),
+      loginError: document.getElementById("loginError"),
+      registerUsername: document.getElementById("registerUsername"),
+      registerPassword: document.getElementById("registerPassword"),
+      registerBtn: document.getElementById("registerBtn"),
+      registerError: document.getElementById("registerError"),
+      showRegisterBtn: document.getElementById("showRegisterBtn"),
+      showLoginBtn: document.getElementById("showLoginBtn"),
+      
+      // Main app elements
+      phoneShell: document.getElementById("phoneShell"),
+      currentUser: document.getElementById("currentUser"),
+      logoutBtn: document.getElementById("logoutBtn"),
       todayLabel: document.getElementById("todayLabel"),
       timeText: document.getElementById("timeText"),
       totalKcalSmall: document.getElementById("totalKcalSmall"),
@@ -230,6 +316,148 @@
       monthTotal: document.getElementById("monthTotal"),
     };
 
+    // API Helper
+    async function apiCall(endpoint, options = {}) {
+      try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+        return data;
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+      }
+    }
+
+    // Auth functions
+    async function checkAuth() {
+      try {
+        const data = await apiCall('/api/auth/check');
+        if (data.authenticated) {
+          currentUser = data.username;
+          showApp();
+          return true;
+        }
+      } catch (error) {
+        console.log('Not authenticated');
+      }
+      showLogin();
+      return false;
+    }
+
+    function showLogin() {
+      el.loginScreen.classList.remove('hidden');
+      el.phoneShell.classList.add('hidden');
+      el.loginForm.classList.remove('hidden');
+      el.registerForm.classList.add('hidden');
+    }
+
+    function showRegister() {
+      el.loginForm.classList.add('hidden');
+      el.registerForm.classList.remove('hidden');
+      el.registerError.classList.add('hidden');
+    }
+
+    function showLoginForm() {
+      el.loginForm.classList.remove('hidden');
+      el.registerForm.classList.add('hidden');
+      el.loginError.classList.add('hidden');
+    }
+
+    function showApp() {
+      el.loginScreen.classList.add('hidden');
+      el.phoneShell.classList.remove('hidden');
+      el.currentUser.textContent = currentUser || 'User';
+      loadMeals();
+    }
+
+    // Login/Register handlers
+    el.loginBtn.addEventListener('click', async () => {
+      const username = el.loginUsername.value.trim();
+      const password = el.loginPassword.value.trim();
+      
+      if (!username || !password) {
+        el.loginError.textContent = 'Please enter username and password';
+        el.loginError.classList.remove('hidden');
+        return;
+      }
+      
+      try {
+        el.loginBtn.disabled = true;
+        el.loginBtn.textContent = 'Logging in...';
+        await apiCall('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password })
+        });
+        currentUser = username;
+        showApp();
+      } catch (error) {
+        el.loginError.textContent = error.message;
+        el.loginError.classList.remove('hidden');
+      } finally {
+        el.loginBtn.disabled = false;
+        el.loginBtn.textContent = 'Login';
+      }
+    });
+
+    el.registerBtn.addEventListener('click', async () => {
+      const username = el.registerUsername.value.trim();
+      const password = el.registerPassword.value.trim();
+      
+      if (!username || !password) {
+        el.registerError.textContent = 'Please enter username and password';
+        el.registerError.classList.remove('hidden');
+        return;
+      }
+      
+      try {
+        el.registerBtn.disabled = true;
+        el.registerBtn.textContent = 'Creating account...';
+        await apiCall('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ username, password })
+        });
+        currentUser = username;
+        showApp();
+      } catch (error) {
+        el.registerError.textContent = error.message;
+        el.registerError.classList.remove('hidden');
+      } finally {
+        el.registerBtn.disabled = false;
+        el.registerBtn.textContent = 'Create Account';
+      }
+    });
+
+    el.showRegisterBtn.addEventListener('click', showRegister);
+    el.showLoginBtn.addEventListener('click', showLoginForm);
+
+    el.logoutBtn.addEventListener('click', async () => {
+      try {
+        await apiCall('/api/auth/logout', { method: 'POST' });
+        currentUser = null;
+        showLogin();
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    });
+
+    // Enter key handlers
+    el.loginPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') el.loginBtn.click();
+    });
+    el.registerPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') el.registerBtn.click();
+    });
+
     function pad2(n) { return String(n).padStart(2, "0"); }
 
     function todayKeyLocal() {
@@ -242,23 +470,18 @@
       return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
     }
 
-    function loadAll() {
+    let todayMeals = [];
+
+    async function loadMeals() {
       try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      } catch {
-        return {};
+        const data = await apiCall(`/api/meals?date=${todayKeyLocal()}`);
+        todayMeals = data.meals || [];
+        render();
+      } catch (error) {
+        console.error('Error loading meals:', error);
+        todayMeals = [];
+        render();
       }
-    }
-
-    function saveAll(data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    }
-
-    function getTodayState() {
-      const all = loadAll();
-      const key = todayKeyLocal();
-      if (!all[key]) all[key] = { items: [] };
-      return { all, key, day: all[key] };
     }
 
     function getTimeOfDay() {
@@ -293,8 +516,7 @@
 
     function render() {
       el.todayLabel.textContent = formatTodayLabel();
-      const { day } = getTodayState();
-      const items = day.items || [];
+      const items = todayMeals;
       const total = computeTotal(items);
 
       el.totalKcalSmall.textContent = String(total);
@@ -311,10 +533,10 @@
       for (const item of items.slice().reverse()) {
         const row = document.createElement("div");
         row.className = "cardRow rounded-2xl px-5 py-4 flex items-center justify-between cursor-pointer";
-        const timeStr = new Date(item.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const timeStr = item.created_at ? new Date(item.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
         row.innerHTML = `
           <div class="min-w-0 flex-1 pr-4">
-            <div class="text-white font-light text-lg truncate" style="line-height: 1.4;">${escapeHtml(item.text || "Food")}</div>
+            <div class="text-white font-light text-lg truncate" style="line-height: 1.4;">${escapeHtml(item.food_description || "Food")}</div>
             <div class="text-white/70 text-xs mt-1 font-light">${timeStr}</div>
           </div>
           <div class="text-right">
@@ -427,7 +649,7 @@
       el.calendarModal.classList.add("hidden");
     }
 
-    function renderCalendar() {
+    async function renderCalendar() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
@@ -439,8 +661,15 @@
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       
-      // Load all data
-      const all = loadAll();
+      // Get monthly data from backend
+      let meals = {};
+      try {
+        const data = await apiCall(`/api/meals/month?year=${year}&month=${month + 1}`);
+        meals = data.meals || {};
+      } catch (error) {
+        console.error('Error loading calendar:', error);
+      }
+      
       const today = todayKeyLocal();
       
       // Find existing day headers
@@ -461,8 +690,7 @@
       let monthTotalCals = 0;
       for (let day = 1; day <= daysInMonth; day++) {
         const dateKey = `${year}-${pad2(month + 1)}-${pad2(day)}`;
-        const dayData = all[dateKey];
-        const calories = dayData ? computeTotal(dayData.items || []) : 0;
+        const calories = meals[dateKey] || 0;
         monthTotalCals += calories;
         
         const isToday = dateKey === today;
@@ -531,30 +759,48 @@
       }
     });
 
-    el.addBtn.addEventListener("click", () => {
+    el.addBtn.addEventListener("click", async () => {
       const text = el.foodInput.value.trim();
       const calories = Number(el.estimatedKcal.textContent);
+      const notes = el.llmNote.textContent;
       if (!text || !Number.isFinite(calories)) return;
 
-      const { all, key, day } = getTodayState();
-      day.items = day.items || [];
-      day.items.push({ text, calories: Math.max(0, Math.round(calories)), ts: Date.now() });
-      all[key] = day;
-      saveAll(all);
-      closeModal();
-      render();
+      try {
+        el.addBtn.disabled = true;
+        el.addBtn.textContent = 'Adding...';
+        await apiCall('/api/meals', {
+          method: 'POST',
+          body: JSON.stringify({
+            date: todayKeyLocal(),
+            food_description: text,
+            calories: Math.max(0, Math.round(calories)),
+            notes: notes
+          })
+        });
+        closeModal();
+        await loadMeals();
+      } catch (error) {
+        el.llmError.textContent = error.message;
+        el.llmError.classList.remove('hidden');
+      } finally {
+        el.addBtn.disabled = false;
+        el.addBtn.textContent = 'Add to Today';
+      }
     });
 
-    el.clearTodayBtn.addEventListener("click", () => {
-      const { all, key } = getTodayState();
-      all[key] = { items: [] };
-      saveAll(all);
-      render();
+    el.clearTodayBtn.addEventListener("click", async () => {
+      if (!confirm('Clear all meals for today?')) return;
+      try {
+        await apiCall(`/api/meals/clear?date=${todayKeyLocal()}`, { method: 'DELETE' });
+        await loadMeals();
+      } catch (error) {
+        console.error('Error clearing meals:', error);
+      }
     });
 
     // Init
     setTimeOfDayBackground();
-    render();
+    checkAuth();
     updateTime();
     setInterval(() => {
       setTimeOfDayBackground();

@@ -18,6 +18,11 @@ var/
 wheels/
 *.egg-info/
 .installed.cfg
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 *.egg
 MANIFEST
 
